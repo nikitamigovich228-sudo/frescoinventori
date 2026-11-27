@@ -105,7 +105,6 @@ form { padding:4px 24px 24px }
 .inventory-row input { text-align:right; font-variant-numeric:tabular-nums }
 .inventory-row input[aria-invalid="true"] { border-color:#943629 }
 .inventory-row output { display:block; min-height:47px; padding:12px 10px; background:var(--soft); border-radius:10px; color:var(--ink); overflow-wrap:anywhere; font-variant-numeric:tabular-nums }
-.inventory-row .meta { margin:0; grid-column:1 / -1 }
 .inventory-field { display:grid; gap:7px; font-size:.875rem; color:var(--muted); font-weight:650 }
 .warehouse-liters { font-weight:500 }
 .inventory-progress { margin-top:16px }
@@ -472,7 +471,6 @@ form.addEventListener('submit', (event) => {
 });
 renderCatalog(initial[0].id);
 
-const inventoryDraftKey = 'bar-inventory-ua.report-draft.v1';
 const inventoryDateKey = 'bar-inventory-ua.report-date';
 const inventoryDate = $('inventory-date');
 const inventoryOnly = {id:'report-penny-packer', name:'Пенні Пакер Бурбон', category:2, volume:700};
@@ -480,9 +478,6 @@ const inventoryFormatter = new Intl.NumberFormat('uk-UA', {maximumFractionDigits
 let inventoryDraft = {};
 let inventoryFields = [];
 let inventoryReport = null;
-try {
-  inventoryDraft = JSON.parse(localStorage.getItem(inventoryDraftKey)) ?? {};
-} catch {}
 
 function isInventoryDate(value) {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(value) || value.startsWith('0000')) return false;
@@ -527,14 +522,6 @@ function inventoryBottles() {
   return Array.from(unique.values()).sort((a, b) => a.category - b.category);
 }
 
-function legacyBarMilliliters(value) {
-  const raw = value.trim();
-  if (!raw) return null;
-  if (!/^(?:\d+(?:[.,]\d{1,3})?|[.,]\d{1,3})$/.test(raw)) return NaN;
-  const milliliters = Math.round(number(raw) * 1000);
-  return Number.isSafeInteger(milliliters) ? milliliters : NaN;
-}
-
 function inventoryWholeNumber(value) {
   const raw = value.trim();
   if (!raw) return null;
@@ -563,8 +550,8 @@ function updateInventoryProgress() {
   const entered = inventoryFields.map(inventoryRowValues).flatMap(({warehouseMl, barMl}) =>
     [warehouseMl, barMl]).filter(Number.isFinite);
   const total = entered.reduce((sum, value) => sum + value, 0);
-  $('inventory-progress').textContent = 'Заповнено полів: ' + entered.length + ' із ' + inventoryFields.length * 2 +
-    (entered.length && Number.isSafeInteger(total) ? ' · Разом за введеними значеннями: ' + formatInventoryVolume(total) : '');
+  $('inventory-progress').textContent = Number.isSafeInteger(total) ?
+    'Разом за введеними значеннями: ' + formatInventoryVolume(total) : '';
 }
 
 function invalidateReport() {
@@ -589,8 +576,7 @@ function renderInventory() {
     name.className = 'inventory-name';
     name.textContent = label(bottle);
     const key = inventoryKey(bottle);
-    const saved = inventoryDraft[key];
-    const previous = typeof saved === 'string' ? saved : saved?.previous;
+    const draft = inventoryDraft[key];
     const warehouseLabel = document.createElement('label');
     const barLabel = document.createElement('label');
     const totalLabel = document.createElement('div');
@@ -600,35 +586,28 @@ function renderInventory() {
     const warehouseLiters = document.createElement('span');
     warehouseLiters.className = 'warehouse-liters';
     const total = document.createElement('output');
-    const note = document.createElement('p');
-    note.className = 'meta';
     warehouse.inputMode = 'numeric';
     warehouse.placeholder = 'шт.';
-    warehouse.value = saved?.warehouse ?? '';
+    warehouse.value = draft?.warehouse ?? '0';
     warehouse.setAttribute('aria-label', label(bottle) + ', повних пляшок на складі');
     bar.inputMode = 'numeric';
     bar.placeholder = 'мл';
-    const legacyBar = legacyBarMilliliters(saved?.bar ?? '');
-    bar.value = saved?.barMl ?? (Number.isFinite(legacyBar) ? String(legacyBar) : '');
+    bar.value = draft?.barMl ?? '0';
     bar.setAttribute('aria-label', label(bottle) + ', залишок на барі в мілілітрах');
     warehouseLabel.append('Склад, шт.', warehouse, warehouseLiters);
     barLabel.append('Бар, мл', bar);
     totalLabel.append('Разом, л', total);
-    row.append(name, warehouseLabel, barLabel, totalLabel, note);
+    row.append(name, warehouseLabel, barLabel, totalLabel);
     const fields = {bottle, warehouse, bar};
     const refreshRow = () => {
-      const {warehouseMl, barMl, milliliters} = inventoryRowValues(fields);
+      const {warehouseMl, barMl} = inventoryRowValues(fields);
       warehouseLiters.textContent = Number.isFinite(warehouseMl) ? formatInventoryVolume(warehouseMl) : '';
-      const complete = Number.isFinite(warehouseMl) && Number.isFinite(barMl) && Number.isSafeInteger(milliliters);
       const visibleTotal = (warehouseMl ?? 0) + (barMl ?? 0);
       total.textContent = (Number.isFinite(warehouseMl) || Number.isFinite(barMl)) && Number.isSafeInteger(visibleTotal) ?
         formatInventoryVolume(visibleTotal) : '—';
-      note.hidden = !previous?.trim() || complete;
-      note.textContent = note.hidden ? '' : 'Попередній загальний залишок: ' + previous + ' л. Розподіли його між складом і баром.';
     };
     const saveRow = (event) => {
-      inventoryDraft[key] = {warehouse:warehouse.value, barMl:bar.value, previous};
-      try { localStorage.setItem(inventoryDraftKey, JSON.stringify(inventoryDraft)); } catch {}
+      inventoryDraft[key] = {warehouse:warehouse.value, barMl:bar.value};
       event.target.removeAttribute('aria-invalid');
       refreshRow();
       invalidateReport();
@@ -824,6 +803,9 @@ $('download-excel').addEventListener('click', () => {
   link.click();
   link.remove();
   setTimeout(() => URL.revokeObjectURL(url), 1000);
+  inventoryDraft = {};
+  renderInventory();
+  $('inventory-date').focus();
 });
 </script>
 </body>
