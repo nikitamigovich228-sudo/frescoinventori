@@ -57,14 +57,27 @@ select { appearance:none; padding-right:35px }
 .meta { color:var(--muted); margin-top:14px; font-size:.875rem; line-height:1.5 }
 .result { min-height:100%; border-radius:21px; padding:25px; background:var(--forest); color:#f3f8f0; }
 .result h2 { color:#fff }
-.reading-area { display:flex; gap:24px; align-items:center; margin:19px 0 21px; min-height:106px }
-.gauge { width:105px; height:105px; flex:0 0 105px; position:relative; display:grid; place-items:center; border-radius:50%; background:conic-gradient(var(--mint) var(--fill,0%),#35564a 0); font-variant-numeric:tabular-nums; font-weight:700; color:var(--mint) }
-.gauge::before { content:""; position:absolute; inset:8px; background:var(--forest); border-radius:50% }
-.gauge span { z-index:1 }
+.reading-area { display:flex; gap:24px; align-items:center; margin:19px 0 21px; min-height:124px }
+.bottle-meter { width:68px; height:124px; flex:0 0 68px; position:relative }
+.bottle-meter::before {
+  content:""; position:absolute; inset:0; background:#a6c5b1;
+  clip-path:path("M 22 0 H 46 Q 50 0 50 4 V 12 Q 50 15 47 15 H 45 V 32 Q 45 37 50 41 L 61 49 Q 68 55 68 65 V 113 Q 68 124 57 124 H 11 Q 0 124 0 113 V 65 Q 0 55 7 49 L 18 41 Q 23 37 23 32 V 15 H 21 Q 18 15 18 12 V 4 Q 18 0 22 0 Z");
+}
+.bottle-glass {
+  position:absolute; inset:0; background:#244a3a;
+  clip-path:path("M 26 4 H 42 V 32 Q 42 39 48 44 L 59 52 Q 65 57 65 65 V 113 Q 65 121 57 121 H 11 Q 3 121 3 113 V 65 Q 3 57 9 52 L 20 44 Q 26 39 26 32 Z");
+}
+.bottle-liquid {
+  position:absolute; inset:4px 0 3px; transform:translateY(calc(100% - var(--fill,0%)));
+  background:linear-gradient(90deg,#b5d68b,var(--mint) 36%,#c3e098);
+  box-shadow:inset 0 2px #f0ffd4; transition:transform 240ms ease-out;
+}
+@media(prefers-reduced-motion:reduce) { .bottle-liquid { transition:none } }
 .reading { min-width:0 }
 .reading output { font-size:clamp(2rem,5vw,3.1rem); font-weight:775; letter-spacing:-.067em; line-height:1; color:var(--mint); font-variant-numeric:tabular-nums }
 .reading label,.reading span { color:#d3e1d7 }
 .reading label { margin-top:5px }
+.reading .fill-percentage { display:block; margin-top:7px; color:var(--mint); font-weight:700; font-variant-numeric:tabular-nums }
 .result dl { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:0; border-top:1px solid #466356; padding-top:14px }
 .result dl > div { padding:0 11px }
 .result dl > div:first-child { padding-left:0 }
@@ -162,8 +175,10 @@ form { padding:4px 24px 24px }
     <section class="result" aria-labelledby="result-heading" aria-live="polite">
       <h2 id="result-heading">Результат</h2>
       <div class="reading-area">
-        <div class="gauge" id="gauge" role="meter" aria-label="Заповнення пляшки" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><span id="gauge-value">—</span></div>
-        <div class="reading"><output id="remaining">—</output> <span>мл</span><label for="remaining">Залишок напою</label></div>
+        <div class="bottle-meter" id="gauge" role="meter" aria-label="Заповнення пляшки" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">
+          <div class="bottle-glass" aria-hidden="true"><div class="bottle-liquid"></div></div>
+        </div>
+        <div class="reading"><output id="remaining">—</output> <span>мл</span><label for="remaining">Залишок напою</label><span class="fill-percentage" id="gauge-value" aria-hidden="true">—</span></div>
       </div>
       <dl>
         <div><dt>Чистого спирту</dt><dd id="alcohol">—</dd></div>
