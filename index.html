@@ -200,7 +200,7 @@ form { padding:4px 24px 24px }
     <div class="intro inventory-intro">
       <div>
         <h1 id="inventory-title">Інвентаризація</h1>
-        <p>На складі вкажи кількість повних пляшок. На барі вкажи весь залишок у мілілітрах. Якщо залишку немає, впиши 0.</p>
+        <p>На складі вкажи кількість повних пляшок. На барі вкажи весь залишок у мілілітрах. Порожні поля рахуються як нулі.</p>
       </div>
       <label class="inventory-date">Дата інвентаризації
         <input id="inventory-date" type="text" form="inventory-form" placeholder="ДД.ММ.РРРР" maxlength="10" autocomplete="off" required>
@@ -560,11 +560,11 @@ function formatInventoryVolume(milliliters) {
 }
 
 function updateInventoryProgress() {
-  const ready = inventoryFields.map(inventoryRowValues).filter(({warehouseMl, barMl}) =>
-    Number.isFinite(warehouseMl) && Number.isFinite(barMl));
-  const total = ready.reduce((sum, row) => sum + row.milliliters, 0);
-  $('inventory-progress').textContent = 'Заповнено ' + ready.length + ' з ' + inventoryFields.length +
-    (ready.length && Number.isSafeInteger(total) ? ' · Разом за заповненими: ' + formatInventoryVolume(total) : '');
+  const entered = inventoryFields.map(inventoryRowValues).flatMap(({warehouseMl, barMl}) =>
+    [warehouseMl, barMl]).filter(Number.isFinite);
+  const total = entered.reduce((sum, value) => sum + value, 0);
+  $('inventory-progress').textContent = 'Заповнено полів: ' + entered.length + ' із ' + inventoryFields.length * 2 +
+    (entered.length && Number.isSafeInteger(total) ? ' · Разом за введеними значеннями: ' + formatInventoryVolume(total) : '');
 }
 
 function invalidateReport() {
@@ -660,6 +660,7 @@ $('show-inventory').addEventListener('click', () => {
 
 $('inventory-form').addEventListener('submit', (event) => {
   event.preventDefault();
+  invalidateReport();
   const date = readInventoryDate();
   if (!date) {
     $('inventory-error').textContent = 'Вкажи дату інвентаризації у форматі ДД.ММ.РРРР.';
@@ -669,36 +670,37 @@ $('inventory-form').addEventListener('submit', (event) => {
     return;
   }
   const rows = inventoryFields.map(inventoryRowValues);
-  const blank = [];
+  let blankCount = 0;
   const invalidWarehouse = [];
   const invalidBar = [];
   rows.forEach(({warehouseMl, barMl}, index) => {
     const {warehouse, bar} = inventoryFields[index];
     for (const [value, input, invalid] of [[warehouseMl, warehouse, invalidWarehouse], [barMl, bar, invalidBar]]) {
-      if (Number.isFinite(value)) input.removeAttribute('aria-invalid');
-      else {
+      if (value === null) blankCount++;
+      if (Number.isNaN(value)) {
         input.setAttribute('aria-invalid', 'true');
-        (value === null ? blank : invalid).push(input);
-      }
+        invalid.push(input);
+      } else input.removeAttribute('aria-invalid');
     }
   });
   const totals = rows.reduce((sum, row) => ({
     warehouse:sum.warehouse + row.warehouseMl, bar:sum.bar + row.barMl
   }), {warehouse:0, bar:0});
   const total = totals.warehouse + totals.bar;
-  if (blank.length || invalidWarehouse.length || invalidBar.length || !Number.isSafeInteger(total)) {
+  if (invalidWarehouse.length || invalidBar.length || !Number.isSafeInteger(total)) {
     const message = [];
-    if (blank.length) message.push('Заповни порожні поля (' + blank.length + '). Якщо залишку немає, впиши 0.');
     if (invalidWarehouse.length) message.push('Для складу введи кількість цілих пляшок.');
     if (invalidBar.length) message.push('Для бару введи ціле невід’ємне число мілілітрів.');
     if (!message.length) message.push('Загальний об’єм завеликий. Перевір введені значення.');
     $('inventory-error').textContent = message.join(' ');
     $('inventory-error').hidden = false;
-    (invalidWarehouse[0] ?? invalidBar[0] ?? blank[0])?.focus();
+    (invalidWarehouse[0] ?? invalidBar[0])?.focus();
     return;
   }
+  const missingNote = blankCount ? '\nПорожніх полів: ' + blankCount + '. У звіті вони будуть враховані як 0.' : '';
+  if (!confirm('Завершити інвентаризацію за ' + formatInventoryDate(date) + '?\nРазом: ' +
+    formatInventoryVolume(total) + '.' + missingNote)) return;
   inventoryReport = {date, rows, total, totals};
-  $('inventory-error').hidden = true;
   $('inventory-total').textContent = 'Склад: ' + formatInventoryVolume(totals.warehouse) +
     ' · Бар: ' + formatInventoryVolume(totals.bar) + ' · Разом: ' + formatInventoryVolume(total);
   $('inventory-result').hidden = false;
@@ -721,7 +723,7 @@ function inventoryXml(report) {
     category.warehouse += warehouseMl;
     category.bar += barMl;
     category.total += milliliters;
-    return [categories[bottle.category], bottle.name, bottle.volume / 1000, count,
+    return [categories[bottle.category], bottle.name, bottle.volume / 1000, count ?? 0,
       warehouseMl / 1000, barMl / 1000, milliliters / 1000];
   });
   const rows = [...summary, ...categories.map((name, index) => [
