@@ -1,0 +1,783 @@
+<!doctype html>
+<html lang="uk">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="description" content="Розрахунок залишку алкоголю у пляшці за її вагою.">
+<meta name="theme-color" content="#f5f5ef">
+<title>Барний облік · Залишок у пляшці</title>
+<style>
+:root {
+  color-scheme: light;
+  --background:#f5f5ef; --paper:#fff; --ink:#162820; --muted:#53655b;
+  --line:#dce4db; --forest:#17372c; --mint:#dbf4a4; --soft:#edf2e9;
+  font-family: "DM Sans", "Segoe UI", system-ui, sans-serif;
+}
+* { box-sizing:border-box }
+body { margin:0; background:var(--background); color:var(--ink) }
+button,input,select { font:inherit }
+button,summary,select { cursor:pointer }
+button:disabled,select:disabled { cursor:default; opacity:.55 }
+:focus-visible { outline:3px solid #4b805c; outline-offset:3px }
+[hidden] { display:none !important }
+.top { border-bottom:1px solid var(--line); background:#fafaf6 }
+.top-inner,.shell { width:min(1080px,calc(100% - 64px)); margin-inline:auto }
+.top-inner { height:72px; display:flex; align-items:center; justify-content:space-between; gap:10px }
+.wordmark { display:flex; align-items:center; gap:11px; font-weight:750; letter-spacing:-.035em; font-size:1.175rem }
+.mark { width:34px; height:34px; display:grid; place-items:center; border-radius:10px; background:var(--forest); color:var(--mint) }
+.mark::before { content:""; width:13px; height:11px; border:1.5px solid currentColor; border-radius:2px 2px 5px 5px; background:linear-gradient(transparent 53%,currentColor 54% 67%,transparent 68%) }
+.top-label { font-size:.875rem; color:var(--muted) }
+.shell { padding-block:49px 48px }
+.intro { margin-bottom:28px }
+h1,h2,p,dl,dd { margin:0 }
+h1 { font-size:clamp(2.4rem,6vw,4.05rem); line-height:1; letter-spacing:-.072em; font-weight:780 }
+.intro p { margin-top:14px; color:var(--muted); font-size:1.025rem }
+.panel { background:var(--paper); border:1px solid var(--line); border-radius:21px }
+.catalog { padding:17px 19px; margin-bottom:18px }
+.search-shell { position:relative }
+.search-shell::before { content:""; position:absolute; top:16px; left:16px; width:11px; height:11px; border:1.7px solid var(--muted); border-radius:50%; pointer-events:none }
+.search-shell::after { content:""; position:absolute; top:28px; left:28px; width:6px; height:2px; background:var(--muted); transform:rotate(45deg); pointer-events:none }
+input,select { width:100%; min-width:0; background:#f8faf7; color:var(--ink); border:1px solid var(--line); border-radius:10px; min-height:47px; padding:10px 13px }
+input::placeholder { color:#637268; opacity:1 }
+.search-shell input { padding-inline-start:43px }
+.chips { display:flex; flex-wrap:wrap; gap:7px; margin-top:13px }
+.chip { padding:6px 12px; min-height:35px; border:1px solid var(--line); border-radius:8px; background:#fff; color:var(--muted); font-size:.875rem; font-weight:650 }
+.chip:hover { background:var(--soft) }
+.chip[aria-pressed="true"] { color:var(--ink); background:var(--mint); border-color:var(--mint) }
+.layout { display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1.025fr); gap:18px; align-items:start }
+.weigh { padding:25px; }
+h2 { font-size:1.33rem; font-weight:760; letter-spacing:-.035em }
+label { display:grid; gap:7px; font-size:.875rem; color:var(--muted); font-weight:650 }
+.weigh label { margin-top:18px }
+.select-shell,.weight-shell { position:relative; display:block }
+select { appearance:none; padding-right:35px }
+.select-shell::after { content:""; position:absolute; right:17px; top:18px; width:8px; height:8px; border:solid var(--muted); border-width:0 1.5px 1.5px 0; transform:rotate(45deg); pointer-events:none }
+.weight-shell input { min-height:60px; padding-right:42px; font-size:1.47rem; font-weight:700; font-variant-numeric:tabular-nums }
+.weight-shell > span { position:absolute; right:16px; top:20px; pointer-events:none }
+.meta { color:var(--muted); margin-top:14px; font-size:.875rem; line-height:1.5 }
+.result { min-height:100%; border-radius:21px; padding:25px; background:var(--forest); color:#f3f8f0; }
+.result h2 { color:#fff }
+.reading-area { display:flex; gap:24px; align-items:center; margin:19px 0 21px; min-height:106px }
+.gauge { width:105px; height:105px; flex:0 0 105px; position:relative; display:grid; place-items:center; border-radius:50%; background:conic-gradient(var(--mint) var(--fill,0%),#35564a 0); font-variant-numeric:tabular-nums; font-weight:700; color:var(--mint) }
+.gauge::before { content:""; position:absolute; inset:8px; background:var(--forest); border-radius:50% }
+.gauge span { z-index:1 }
+.reading { min-width:0 }
+.reading output { font-size:clamp(2rem,5vw,3.1rem); font-weight:775; letter-spacing:-.067em; line-height:1; color:var(--mint); font-variant-numeric:tabular-nums }
+.reading label,.reading span { color:#d3e1d7 }
+.reading label { margin-top:5px }
+.result dl { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:0; border-top:1px solid #466356; padding-top:14px }
+.result dl > div { padding:0 11px }
+.result dl > div:first-child { padding-left:0 }
+.result dl > div + div { border-left:1px solid #466356 }
+.result dt { color:#d3e1d7; font-size:.82rem }
+.result dd { margin-top:5px; font-size:1rem; font-weight:730; font-variant-numeric:tabular-nums }
+.result .meta { color:#d3e1d7; margin-top:14px; font-size:.84rem }
+.editor { margin-top:18px }
+summary { list-style:none; display:flex; align-items:center; gap:10px; font-weight:750; padding:20px 24px; }
+summary::-webkit-details-marker { display:none }
+summary::before { content:"+"; display:grid; place-items:center; width:25px; height:25px; flex:0 0 25px; border-radius:6px; background:var(--soft); color:var(--forest); font-size:1.2rem; }
+details[open] summary::before { content:"−" }
+form { padding:4px 24px 24px }
+.fields { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:15px }
+.actions { display:flex; flex-wrap:wrap; gap:9px; margin-top:16px }
+.action { min-height:42px; background:var(--paper); border:1px solid var(--line); color:var(--ink); border-radius:9px; padding:8px 14px; font-weight:700; font-size:.9rem }
+.action:hover { background:var(--soft) }
+.primary { background:var(--forest); color:white; border-color:var(--forest) }
+.primary:hover { background:#254b3c }
+.danger { color:#943629 }
+#form-status:empty { display:none }
+#form-status[data-error] { color:#943629 }
+.views { display:flex; gap:8px; margin-bottom:26px; flex-wrap:wrap }
+.views button[aria-pressed="true"] { background:var(--forest); border-color:var(--forest); color:white }
+.inventory-panel { padding:24px }
+.inventory-group { border:0; margin:24px 0 0; padding:0; min-width:0 }
+.inventory-group legend { padding:0; font-size:1.13rem; font-weight:750 }
+.inventory-row { display:grid; grid-template-columns:minmax(0,1fr) repeat(2,minmax(105px,145px)) minmax(90px,115px); align-items:start; gap:12px; padding-block:12px; border-bottom:1px solid var(--line) }
+.inventory-row:first-of-type { margin-top:5px }
+.inventory-name { color:var(--ink); font-weight:650; overflow-wrap:anywhere; align-self:center }
+.inventory-row input { text-align:right; font-variant-numeric:tabular-nums }
+.inventory-row input[aria-invalid="true"] { border-color:#943629 }
+.inventory-row output { display:block; min-height:47px; padding:12px 10px; background:var(--soft); border-radius:10px; color:var(--ink); overflow-wrap:anywhere; font-variant-numeric:tabular-nums }
+.inventory-row .meta { margin:0; grid-column:1 / -1 }
+.inventory-field { display:grid; gap:7px; font-size:.875rem; color:var(--muted); font-weight:650 }
+.warehouse-liters { font-weight:500 }
+.inventory-progress { margin-top:16px }
+.report-output { margin-top:18px; padding:20px; background:var(--soft); border-radius:13px }
+.report-output p { margin-block:8px 12px }
+#inventory-error { color:#943629 }
+@media(max-width:760px) {
+  .top-inner,.shell { width:calc(100% - 32px) }
+  .top-inner { height:61px }
+  .shell { padding-block:32px }
+  .layout { grid-template-columns:1fr; gap:12px }
+  .catalog,.editor { margin-block:0 12px }
+  .editor { margin-top:12px }
+  .weigh,.result { padding:19px }
+  .inventory-panel { padding:16px }
+  .inventory-row { grid-template-columns:repeat(2,minmax(0,1fr)) }
+  .inventory-name,.inventory-row > .inventory-field:last-of-type { grid-column:1 / -1 }
+  .fields { grid-template-columns:repeat(2,minmax(0,1fr)) }
+}
+@media(max-width:365px) {
+  .top-label { display:none }
+  .fields { grid-template-columns:1fr }
+  .result dl > div { padding-inline:7px }
+}
+</style>
+</head>
+<body>
+<header class="top">
+  <div class="top-inner">
+    <div class="wordmark"><span class="mark" aria-hidden="true"></span>Барний облік</div>
+    <span class="top-label">Інвентаризація бару</span>
+  </div>
+</header>
+<main class="shell">
+  <nav class="views" aria-label="Розділи барного обліку">
+    <button class="action" id="show-calculator" type="button" aria-controls="calculator-page" aria-pressed="true">Калькулятор</button>
+    <button class="action" id="show-inventory" type="button" aria-controls="inventory-page" aria-pressed="false">Інвентаризація</button>
+  </nav>
+  <section id="calculator-page" aria-labelledby="calculator-title">
+  <div class="intro">
+    <h1 id="calculator-title">Залишок у пляшці</h1>
+    <p>Оберіть напій і введіть вагу пляшки в грамах.</p>
+  </div>
+  <section class="panel catalog" aria-label="Каталог напоїв">
+    <div class="search-shell"><input id="search" type="search" aria-label="Пошук пляшки" placeholder="Знайти пляшку за назвою…" autocomplete="off"></div>
+    <div class="chips" id="chips" role="group" aria-label="Категорії"></div>
+  </section>
+  <div class="layout">
+    <section class="panel weigh" aria-labelledby="weigh-heading">
+      <h2 id="weigh-heading">Зважування</h2>
+      <label>Пляшка<span class="select-shell"><select id="bottle"></select></span></label>
+      <label>Вага на вагах, г<span class="weight-shell"><input id="weight" inputmode="decimal" placeholder="0" autocomplete="off"><span aria-hidden="true">г</span></span></label>
+      <p class="meta" id="bottle-meta"></p>
+    </section>
+    <section class="result" aria-labelledby="result-heading" aria-live="polite">
+      <h2 id="result-heading">Результат</h2>
+      <div class="reading-area">
+        <div class="gauge" id="gauge" role="meter" aria-label="Заповнення пляшки" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><span id="gauge-value">—</span></div>
+        <div class="reading"><output id="remaining">—</output> <span>мл</span><label for="remaining">Залишок напою</label></div>
+      </div>
+      <dl>
+        <div><dt>Чистого спирту</dt><dd id="alcohol">—</dd></div>
+        <div><dt>Витрачено</dt><dd id="used">—</dd></div>
+        <div><dt>Вага повної</dt><dd id="full">—</dd></div>
+      </dl>
+      <p class="meta" id="result-note"></p>
+    </section>
+  </div>
+  <details class="panel editor" id="editor">
+    <summary>Додати або змінити пляшку</summary>
+    <form id="bottle-form" autocomplete="off">
+      <div class="fields">
+        <label>Назва<input name="name" required maxlength="120" placeholder="Jameson"></label>
+        <label>Об’єм, мл<input name="volume" required inputmode="decimal" placeholder="700"></label>
+        <label>Міцність, %<input name="abv" required inputmode="decimal" placeholder="40"></label>
+        <label>Вага повної, г<input name="full" inputmode="decimal" placeholder="1190"></label>
+        <label>Вага порожньої, г<input name="empty" inputmode="decimal" placeholder="Необов’язково"></label>
+        <label>Густина, г/мл<input name="density" inputmode="decimal" placeholder="Розраховується за міцністю"></label>
+        <label>Категорія<span class="select-shell"><select name="category" id="edit-category"></select></span></label>
+      </div>
+      <p class="meta">Для калібрування достатньо ваги повної або порожньої пляшки. Для солодких лікерів і сиропів густину можна вказати вручну.</p>
+      <div class="actions">
+        <button class="action primary">Зберегти</button>
+        <button class="action" id="clear" type="button">Очистити форму</button>
+        <button class="action danger" id="delete" type="button">Видалити обрану</button>
+      </div>
+      <p class="meta" id="form-status" role="status"></p>
+    </form>
+  </details>
+  </section>
+  <section id="inventory-page" aria-labelledby="inventory-title" hidden>
+    <div class="intro">
+      <h1 id="inventory-title">Інвентаризація</h1>
+      <p>На складі вкажи кількість повних пляшок. На барі вкажи весь залишок у мілілітрах. Якщо залишку немає, впиши 0.</p>
+    </div>
+    <form id="inventory-form" class="panel inventory-panel" autocomplete="off" novalidate>
+      <h2>Залишки на складі й барі</h2>
+      <div id="inventory-items"></div>
+      <p class="meta inventory-progress" id="inventory-progress"></p>
+      <div class="actions"><button class="action primary" type="submit">Провести розрахунок</button></div>
+      <p class="meta" id="inventory-error" role="alert" hidden></p>
+      <section class="report-output" id="inventory-result" aria-labelledby="report-title" hidden>
+        <h2 id="report-title">Звіт готовий</h2>
+        <p id="inventory-total" aria-live="polite"></p>
+        <button class="action primary" id="download-excel" type="button">Завантажити Excel (.xlsx)</button>
+      </section>
+    </form>
+  </section>
+</main>
+<script>
+'use strict';
+const categories = ['Вермути й лікери', 'Бренді', 'Віскі', 'Ром', 'Текіла', 'Джин', 'Горілка', 'Вино'];
+const stock = [
+  [
+    ['Cinzano Bianco',1000,15,1.03,540], ['Amaro Averna',1000,29,1.08,640],
+    ['Campari',1000,25,1.04,580], ['Caffo Limoncino dell’Isola',700,28,1.05,540],
+    ['The Pogues Honey',700,35,1.05], ['Charis Irish Cream',700,17,1.05,530]
+  ],
+  [
+    ['Hardy Napoleon De Pourvil',700,40,.935], ['Pere Magloire Fine Calvados',1000,40,.935,750],
+    ['Chateau de Montifaud VS Fine Petite Champagne',500,40,.935,610], ['Hennessy',1000,40,.935,690]
+  ],
+  [
+    ['Jack Daniel’s Old No.7',1000,40,.935], ['Hankey Bannister Heritage Blend',700,40,.935,415],
+    ['AnCnoc 12 YO',700,40,.935,540], ['Wild Turkey 81 Bourbon',700,40.5,.934,490],
+    ['Wild Turkey 81 Bourbon',1000,40.5,.934], ['The Pogues',1000,40,.935,740],
+    ['Chivas Regal 12 років',700,40,.935,510], ['Bell’s',1000,40,.935,505], ['Jameson',1000,40,.935,520]
+  ],
+  [
+    ['Appleton Estate 12 YO',700,43,.929,770], ['Botafogo Green Apple',700,35,1,515],
+    ['Botafogo Mango',700,35,1,510], ['Captain Morgan Spiced Gold',1000,35,.945,490],
+    ['Bumbu XO',700,40,.935,850], ['Botafogo Spiced',700,40,.935,600]
+  ],
+  [['Sierra Antiguo Plata',700,38,.939,575], ['Sierra Antiguo Anejo',700,38,.939,570]],
+  [
+    ['Finsbury Platinum',700,47,.92], ['Finsbury Platinum',1000,47,.92,615],
+    ['Whitley Neill Black Cherry',700,43,.929,560], ['Whitley Neill Pineapple',700,43,.929,560],
+    ['Whitley Neill Rhubarb & Ginger',700,43,.929,560]
+  ],
+  [
+    ['Finlandia',500,40,.935], ['Могутні Карпати Класик',500,40,.935,410],
+    ['Grey Goose',500,40,.935,450], ['Absolut Vanilia',700,40,.935,500]
+  ],
+  [
+    ['Lambrusco Bianco ігристе',750,10.5,.99,470], ['Prosecco Spumante',750,11,.99],
+    ['Asti',750,7.5,1.01], ['Vino Bianco',750,12,.99,400], ['Vinho Verde Branco',750,11,.99,400],
+    ['Caballeros de la Rosa Lozano Blanco',750,11,1,370], ['Kiwi Cuvee Sauvignon',750,12,.99,535],
+    ['Pinot Grigio',750,12,.99], ['Fuzion Chenin Chardonnay',750,12.5,.99],
+    ['Alsace Riesling Hubert Beck',750,12,.99], ['Gavi del comune di Gavi',750,12.5,.99],
+    ['Vinho Verde Rosado',750,11,.99,410], ['Rose d’Anjou Domaine des Deux Vallee',750,11,1],
+    ['Vino Rosso',750,12,.99,410], ['Caballeros de la Rosa Lozano Tinto',750,11,1,375],
+    ['Kiwi Cuvee Pinot Noir',750,13,.99,540], ['Chianti Zonin',750,12.5,.99],
+    ['Bardolino',750,12,.99], ['Valpolicella Classico',750,13,.99]
+  ]
+];
+
+const $ = (id) => document.getElementById(id);
+const form = $('bottle-form');
+const storageKey = 'bar-inventory-ua.catalog.v1';
+const formatter = new Intl.NumberFormat('uk-UA', {maximumFractionDigits:0});
+const liters = new Intl.NumberFormat('uk-UA', {maximumFractionDigits:4});
+const initial = stock.flatMap((group, category) => group.map(([name, volume, abv, density, empty = null], index) => ({
+  id: 'stock-' + category + '-' + index, name, category, volume, abv, density, full: null, empty
+})));
+const addedStockIds = new Set(['stock-3-5']);
+const correctedStockIds = new Set(['stock-1-1', 'stock-1-2', 'stock-2-0']);
+
+function sameBottle(first, second) {
+  return first.category === second.category && first.volume === second.volume &&
+    first.name.trim().toLowerCase() === second.name.trim().toLowerCase();
+}
+
+function upgradeCatalog(saved) {
+  const updated = saved.map((bottle) => {
+    const preset = initial.find((item) => sameBottle(item, bottle));
+    if (!preset || preset.empty === null || bottle.full !== null || bottle.empty !== null) return bottle;
+    return {...bottle, empty: preset.empty};
+  });
+  const additions = initial.filter((preset) => addedStockIds.has(preset.id) &&
+    !updated.some((bottle) => sameBottle(bottle, preset)));
+  return [...updated, ...additions];
+}
+
+function correctBottleVolumes(saved) {
+  return saved.flatMap((bottle) => {
+    if (bottle.volume !== 700 || !correctedStockIds.has(bottle.id)) return [bottle];
+    const preset = initial.find((item) => item.id === bottle.id);
+    if (!sameBottle({...preset, volume: 700}, bottle)) return [bottle];
+    // Keep any existing entry for the correct size, including its manual calibration.
+    return saved.some((item) => sameBottle(preset, item)) ? [] : [preset];
+  });
+}
+
+let bottles = initial;
+try {
+  const saved = JSON.parse(localStorage.getItem(storageKey));
+  if (Array.isArray(saved)) bottles = correctBottleVolumes(upgradeCatalog(saved));
+  else if (saved?.version === 2 && Array.isArray(saved.bottles)) bottles = correctBottleVolumes(saved.bottles);
+  else if (saved?.version === 3 && Array.isArray(saved.bottles)) bottles = saved.bottles;
+} catch {}
+let activeCategory = -1;
+let editId = null;
+
+function number(value) {
+  const normalized = value.trim().replace(/[\s\u00a0\u202f]/g, '').replace(',', '.');
+  if (!normalized) return null;
+  return /^(?:\d+(?:\.\d*)?|\.\d+)$/.test(normalized) ? Number(normalized) : NaN;
+}
+
+function densityFor(abv) {
+  if (abv <= 40) return +(1 - abv * .001625).toFixed(3);
+  return +(.935 - (abv - 40) * .0021).toFixed(3);
+}
+
+function estimateEmpty(volume) {
+  if (volume <= 500) return 380;
+  if (volume <= 700) return 500;
+  if (volume <= 750) return 520;
+  return 650;
+}
+
+function calculate(bottle, weight) {
+  const {volume, abv, density, full, empty} = bottle;
+  const mass = volume * density;
+  const estimated = full === null && empty === null;
+  const tare = empty ?? (full === null ? estimateEmpty(volume) : full - mass);
+  const fullWeight = full ?? tare + mass;
+  const remaining = Math.min(volume, Math.max(0, (weight - tare) * volume / (fullWeight - tare)));
+  return {remaining, percent: remaining / volume * 100, alcohol: remaining * abv / 100,
+    used: volume - remaining, fullWeight, tare, estimated};
+}
+
+function selected() {
+  return bottles.find((bottle) => bottle.id === $('bottle').value);
+}
+
+function label(bottle) {
+  return bottle.name + ' · ' + liters.format(bottle.volume / 1000) + ' л';
+}
+
+function renderCatalog(preferred = $('bottle').value) {
+  const query = $('search').value.trim().toLocaleLowerCase('uk-UA').replace(/[’']/g, '');
+  const visible = bottles.filter((bottle) =>
+    (activeCategory === -1 || bottle.category === activeCategory) &&
+    label(bottle).toLocaleLowerCase('uk-UA').replace(/[’']/g, '').includes(query));
+  const select = $('bottle');
+  select.replaceChildren(...visible.map((bottle) => new Option(label(bottle), bottle.id)));
+  select.disabled = visible.length === 0;
+  if (!visible.length) select.add(new Option('Нічого не знайдено', ''));
+  if (visible.some((bottle) => bottle.id === preferred)) select.value = preferred;
+  for (const chip of $('chips').children) chip.setAttribute('aria-pressed', Number(chip.dataset.category) === activeCategory);
+  loadForm();
+  renderResult();
+}
+
+function renderResult() {
+  const bottle = selected();
+  const weight = number($('weight').value);
+  const valid = bottle && weight !== null && Number.isFinite(weight);
+  const result = valid ? calculate(bottle, weight) : null;
+  const measured = bottle && (bottle.full !== null || bottle.empty !== null);
+  const calibration = bottle?.empty != null ? 'Порожня пляшка: ' + formatter.format(bottle.empty) + ' г' :
+    (measured ? 'Вагу повної пляшки внесено' : 'Вагу пляшки не внесено');
+  $('bottle-meta').textContent = bottle ? categories[bottle.category] + ' · ' +
+    liters.format(bottle.abv) + '% · ' + calibration : '';
+  $('remaining').textContent = result ? formatter.format(result.remaining) : '—';
+  $('gauge-value').textContent = result ? formatter.format(result.percent) + '%' : '—';
+  $('gauge').setAttribute('aria-valuenow', result ? Math.round(result.percent) : 0);
+  $('gauge').setAttribute('aria-valuetext', result ? $('gauge-value').textContent : 'Очікується зважування');
+  $('gauge').style.setProperty('--fill', (result?.percent ?? 0) + '%');
+  $('alcohol').textContent = result ? formatter.format(result.alcohol) + ' мл' : '—';
+  $('used').textContent = result ? formatter.format(result.used) + ' мл' : '—';
+  $('full').textContent = result ? (bottle.full === null ? '≈ ' : '') + formatter.format(result.fullWeight) + ' г' : '—';
+  let note = '';
+  if (!bottle) note = 'Оберіть пляшку з каталогу.';
+  else if (weight === null) note = 'Результат з’явиться після введення ваги.';
+  else if (!valid) note = 'Введіть вагу числом у грамах.';
+  else if (result.estimated) note = 'Вага скла орієнтовна. Для точнішого результату внесіть вагу повної або порожньої пляшки.';
+  else if (weight < result.tare || weight > result.fullWeight) note = 'Вага виходить за межі калібрування цієї пляшки. Перевірте показник ваг.';
+  $('result-note').textContent = note;
+}
+
+function status(message, error = false) {
+  $('form-status').textContent = message;
+  $('form-status').toggleAttribute('data-error', error);
+}
+
+function loadForm(bottle = selected()) {
+  editId = bottle?.id ?? null;
+  for (const key of ['name','volume','abv','full','empty','density']) {
+    form.elements.namedItem(key).value = bottle?.[key] ?? '';
+  }
+  $('edit-category').value = bottle?.category ?? Math.max(0, activeCategory);
+  $('delete').disabled = !selected();
+  status('');
+}
+
+function persist(next) {
+  try {
+    localStorage.setItem(storageKey, JSON.stringify({version: 3, bottles: next}));
+    bottles = next;
+    return true;
+  } catch {
+    status('Браузер не дозволив зберегти зміни. Перевірте налаштування сховища.', true);
+    return false;
+  }
+}
+
+for (const [category, name] of ['Усі', ...categories].entries()) {
+  const chip = document.createElement('button');
+  chip.type = 'button';
+  chip.className = 'chip';
+  chip.dataset.category = category - 1;
+  chip.textContent = name;
+  chip.addEventListener('click', () => {
+    activeCategory = category - 1;
+    renderCatalog();
+  });
+  $('chips').append(chip);
+  if (category) $('edit-category').add(new Option(name, category - 1));
+}
+$('search').addEventListener('input', () => renderCatalog());
+$('bottle').addEventListener('change', () => { loadForm(); renderResult(); });
+$('weight').addEventListener('input', renderResult);
+$('clear').addEventListener('click', () => { loadForm(null); form.elements.namedItem('name').focus(); });
+$('delete').addEventListener('click', () => {
+  const bottle = selected();
+  if (!bottle || !confirm('Видалити «' + label(bottle) + '» з каталогу?')) return;
+  if (!persist(bottles.filter((item) => item.id !== bottle.id))) return;
+  renderCatalog();
+  status('Пляшку видалено.');
+});
+form.addEventListener('submit', (event) => {
+  event.preventDefault();
+  const fields = new FormData(form);
+  const name = fields.get('name').trim();
+  const [volume, abv, full, empty, override] = ['volume','abv','full','empty','density'].map((key) => number(fields.get(key)));
+  if (!name || !Number.isFinite(volume) || volume <= 0 || !Number.isFinite(abv) || abv < 0 || abv > 100) {
+    status('Вкажіть назву, об’єм понад 0 мл та міцність від 0 до 100%.', true);
+    return;
+  }
+  if ([full, empty, override].some((value) => value !== null && (!Number.isFinite(value) || value <= 0))) {
+    status('Вага й густина мають бути додатними числами.', true);
+    return;
+  }
+  const density = override ?? densityFor(abv);
+  if (full !== null && full <= (empty ?? volume * density)) {
+    status('Вага повної пляшки має перевищувати вагу порожньої пляшки або розраховану вагу напою.', true);
+    return;
+  }
+  const id = editId ?? 'custom-' + (globalThis.crypto?.randomUUID?.() ?? Date.now().toString(36));
+  const bottle = {id, name, volume, abv, full, empty, density, category: Number(fields.get('category'))};
+  const next = editId ? bottles.map((item) => item.id === id ? bottle : item) : [...bottles, bottle];
+  if (!persist(next)) return;
+  $('search').value = '';
+  if (activeCategory !== -1) activeCategory = bottle.category;
+  renderCatalog(id);
+  status('Зміни збережено в цьому браузері.');
+});
+renderCatalog(initial[0].id);
+
+const inventoryDraftKey = 'bar-inventory-ua.report-draft.v1';
+const inventoryOnly = {id:'report-penny-packer', name:'Пенні Пакер Бурбон', category:2, volume:700};
+const inventoryFormatter = new Intl.NumberFormat('uk-UA', {maximumFractionDigits:3});
+let inventoryDraft = {};
+let inventoryFields = [];
+let inventoryReport = null;
+try {
+  inventoryDraft = JSON.parse(localStorage.getItem(inventoryDraftKey)) ?? {};
+} catch {}
+
+function inventoryKey(bottle) {
+  return bottle.category + '|' + bottle.name.trim().toLowerCase() + '|' + bottle.volume;
+}
+
+function inventoryBottles() {
+  const unique = new Map();
+  for (const bottle of [...initial, ...bottles, inventoryOnly]) {
+    unique.set(inventoryKey(bottle), bottle);
+  }
+  return Array.from(unique.values()).sort((a, b) => a.category - b.category);
+}
+
+function legacyBarMilliliters(value) {
+  const raw = value.trim();
+  if (!raw) return null;
+  if (!/^(?:\d+(?:[.,]\d{1,3})?|[.,]\d{1,3})$/.test(raw)) return NaN;
+  const milliliters = Math.round(number(raw) * 1000);
+  return Number.isSafeInteger(milliliters) ? milliliters : NaN;
+}
+
+function inventoryWholeNumber(value) {
+  const raw = value.trim();
+  if (!raw) return null;
+  const count = Number(raw);
+  return /^\d+$/.test(raw) && Number.isSafeInteger(count) ? count : NaN;
+}
+
+function warehouseVolume(count, capacity) {
+  if (count === null) return null;
+  const milliliters = Math.round(count * capacity);
+  return Number.isSafeInteger(milliliters) ? milliliters : NaN;
+}
+
+function inventoryRowValues({bottle, warehouse, bar}) {
+  const count = inventoryWholeNumber(warehouse.value);
+  const warehouseMl = warehouseVolume(count, bottle.volume);
+  const barMl = inventoryWholeNumber(bar.value);
+  return {bottle, count, warehouseMl, barMl, milliliters:warehouseMl + barMl};
+}
+
+function formatInventoryVolume(milliliters) {
+  return inventoryFormatter.format(milliliters / 1000) + ' л';
+}
+
+function updateInventoryProgress() {
+  const ready = inventoryFields.map(inventoryRowValues).filter(({warehouseMl, barMl}) =>
+    Number.isFinite(warehouseMl) && Number.isFinite(barMl));
+  const total = ready.reduce((sum, row) => sum + row.milliliters, 0);
+  $('inventory-progress').textContent = 'Заповнено ' + ready.length + ' з ' + inventoryFields.length +
+    (ready.length && Number.isSafeInteger(total) ? ' · Разом за заповненими: ' + formatInventoryVolume(total) : '');
+}
+
+function invalidateReport() {
+  inventoryReport = null;
+  $('inventory-result').hidden = true;
+  $('inventory-error').hidden = true;
+}
+
+function renderInventory() {
+  const groups = categories.map((category) => {
+    const group = document.createElement('fieldset');
+    group.className = 'inventory-group';
+    const legend = document.createElement('legend');
+    legend.textContent = category;
+    group.append(legend);
+    return group;
+  });
+  inventoryFields = inventoryBottles().map((bottle) => {
+    const row = document.createElement('div');
+    row.className = 'inventory-row';
+    const name = document.createElement('span');
+    name.className = 'inventory-name';
+    name.textContent = label(bottle);
+    const key = inventoryKey(bottle);
+    const saved = inventoryDraft[key];
+    const previous = typeof saved === 'string' ? saved : saved?.previous;
+    const warehouseLabel = document.createElement('label');
+    const barLabel = document.createElement('label');
+    const totalLabel = document.createElement('div');
+    totalLabel.className = 'inventory-field';
+    const warehouse = document.createElement('input');
+    const bar = document.createElement('input');
+    const warehouseLiters = document.createElement('span');
+    warehouseLiters.className = 'warehouse-liters';
+    const total = document.createElement('output');
+    const note = document.createElement('p');
+    note.className = 'meta';
+    warehouse.inputMode = 'numeric';
+    warehouse.placeholder = 'шт.';
+    warehouse.value = saved?.warehouse ?? '';
+    warehouse.setAttribute('aria-label', label(bottle) + ', повних пляшок на складі');
+    bar.inputMode = 'numeric';
+    bar.placeholder = 'мл';
+    const legacyBar = legacyBarMilliliters(saved?.bar ?? '');
+    bar.value = saved?.barMl ?? (Number.isFinite(legacyBar) ? String(legacyBar) : '');
+    bar.setAttribute('aria-label', label(bottle) + ', залишок на барі в мілілітрах');
+    warehouseLabel.append('Склад, шт.', warehouse, warehouseLiters);
+    barLabel.append('Бар, мл', bar);
+    totalLabel.append('Разом, л', total);
+    row.append(name, warehouseLabel, barLabel, totalLabel, note);
+    const fields = {bottle, warehouse, bar};
+    const refreshRow = () => {
+      const {warehouseMl, barMl, milliliters} = inventoryRowValues(fields);
+      warehouseLiters.textContent = Number.isFinite(warehouseMl) ? formatInventoryVolume(warehouseMl) : '';
+      const complete = Number.isFinite(warehouseMl) && Number.isFinite(barMl) && Number.isSafeInteger(milliliters);
+      const visibleTotal = (warehouseMl ?? 0) + (barMl ?? 0);
+      total.textContent = (Number.isFinite(warehouseMl) || Number.isFinite(barMl)) && Number.isSafeInteger(visibleTotal) ?
+        formatInventoryVolume(visibleTotal) : '—';
+      note.hidden = !previous?.trim() || complete;
+      note.textContent = note.hidden ? '' : 'Попередній загальний залишок: ' + previous + ' л. Розподіли його між складом і баром.';
+    };
+    const saveRow = (event) => {
+      inventoryDraft[key] = {warehouse:warehouse.value, barMl:bar.value, previous};
+      try { localStorage.setItem(inventoryDraftKey, JSON.stringify(inventoryDraft)); } catch {}
+      event.target.removeAttribute('aria-invalid');
+      refreshRow();
+      invalidateReport();
+      updateInventoryProgress();
+    };
+    warehouse.addEventListener('input', saveRow);
+    bar.addEventListener('input', saveRow);
+    refreshRow();
+    groups[bottle.category].append(row);
+    return fields;
+  });
+  $('inventory-items').replaceChildren(...groups);
+  invalidateReport();
+  updateInventoryProgress();
+}
+
+function showInventory(open) {
+  $('calculator-page').hidden = open;
+  $('inventory-page').hidden = !open;
+  $('show-calculator').setAttribute('aria-pressed', !open);
+  $('show-inventory').setAttribute('aria-pressed', open);
+  if (open) renderInventory();
+}
+
+$('show-calculator').addEventListener('click', () => showInventory(false));
+$('show-inventory').addEventListener('click', () => {
+  if ($('inventory-page').hidden) showInventory(true);
+});
+
+$('inventory-form').addEventListener('submit', (event) => {
+  event.preventDefault();
+  const rows = inventoryFields.map(inventoryRowValues);
+  const blank = [];
+  const invalidWarehouse = [];
+  const invalidBar = [];
+  rows.forEach(({warehouseMl, barMl}, index) => {
+    const {warehouse, bar} = inventoryFields[index];
+    for (const [value, input, invalid] of [[warehouseMl, warehouse, invalidWarehouse], [barMl, bar, invalidBar]]) {
+      if (Number.isFinite(value)) input.removeAttribute('aria-invalid');
+      else {
+        input.setAttribute('aria-invalid', 'true');
+        (value === null ? blank : invalid).push(input);
+      }
+    }
+  });
+  const totals = rows.reduce((sum, row) => ({
+    warehouse:sum.warehouse + row.warehouseMl, bar:sum.bar + row.barMl
+  }), {warehouse:0, bar:0});
+  const total = totals.warehouse + totals.bar;
+  if (blank.length || invalidWarehouse.length || invalidBar.length || !Number.isSafeInteger(total)) {
+    const message = [];
+    if (blank.length) message.push('Заповни порожні поля (' + blank.length + '). Якщо залишку немає, впиши 0.');
+    if (invalidWarehouse.length) message.push('Для складу введи кількість цілих пляшок.');
+    if (invalidBar.length) message.push('Для бару введи ціле невід’ємне число мілілітрів.');
+    if (!message.length) message.push('Загальний об’єм завеликий. Перевір введені значення.');
+    $('inventory-error').textContent = message.join(' ');
+    $('inventory-error').hidden = false;
+    (invalidWarehouse[0] ?? invalidBar[0] ?? blank[0])?.focus();
+    return;
+  }
+  inventoryReport = {date:new Date(), rows, total, totals};
+  $('inventory-error').hidden = true;
+  $('inventory-total').textContent = 'Склад: ' + formatInventoryVolume(totals.warehouse) +
+    ' · Бар: ' + formatInventoryVolume(totals.bar) + ' · Разом: ' + formatInventoryVolume(total);
+  $('inventory-result').hidden = false;
+  $('download-excel').focus();
+});
+
+function xmlText(value) {
+  return String(value).replace(/[\x00-\x08\x0b\x0c\x0e-\x1f\ufffe\uffff]/g, '').replaceAll('&', '&amp;')
+    .replaceAll('<', '&lt;').replaceAll('>', '&gt;');
+}
+
+function inventoryXml(report) {
+  const totals = categories.map(() => ({warehouse:0, bar:0, total:0}));
+  const date = report.date.toLocaleDateString('uk-UA');
+  const summary = [['Інвентаризація бару'], ['Дата', date], [],
+    ['Підсумок', 'Склад, л', 'Бар, л', 'Разом, л'],
+    ['Усі позиції', report.totals.warehouse / 1000, report.totals.bar / 1000, report.total / 1000]];
+  const details = report.rows.map(({bottle, count, warehouseMl, barMl, milliliters}) => {
+    const category = totals[bottle.category];
+    category.warehouse += warehouseMl;
+    category.bar += barMl;
+    category.total += milliliters;
+    return [categories[bottle.category], bottle.name, bottle.volume / 1000, count,
+      warehouseMl / 1000, barMl / 1000, milliliters / 1000];
+  });
+  const rows = [...summary, ...categories.map((name, index) => [
+    name, totals[index].warehouse / 1000, totals[index].bar / 1000, totals[index].total / 1000
+  ]), []];
+  const headerRow = rows.length + 1;
+  rows.push(['Категорія', 'Позиція', 'Об’єм пляшки, л', 'Склад, шт.', 'Склад, л', 'Бар, л', 'Разом, л'], ...details);
+  const data = rows.map((row, index) => {
+    const rowNumber = index + 1;
+    const cells = row.map((value, column) => {
+      const ref = String.fromCharCode(65 + column) + rowNumber;
+      return typeof value === 'number' ? '<c r="' + ref + '"><v>' + value + '</v></c>' :
+        '<c r="' + ref + '" t="inlineStr"><is><t>' + xmlText(value) + '</t></is></c>';
+    }).join('');
+    return '<row r="' + rowNumber + '">' + cells + '</row>';
+  }).join('');
+  return '<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><cols>' +
+    '<col min="1" max="1" width="23" customWidth="1"/><col min="2" max="2" width="56" customWidth="1"/>' +
+    '<col min="3" max="7" width="21" customWidth="1"/></cols><sheetData>' + data + '</sheetData>' +
+    '<autoFilter ref="A' + headerRow + ':G' + rows.length + '"/></worksheet>';
+}
+
+function crc32(bytes) {
+  let crc = 0xffffffff;
+  for (const byte of bytes) {
+    crc ^= byte;
+    for (let bit = 0; bit < 8; bit++) crc = (crc >>> 1) ^ ((crc & 1) ? 0xedb88320 : 0);
+  }
+  return (crc ^ 0xffffffff) >>> 0;
+}
+
+// XLSX is a ZIP container. Store the small XML parts without compression for offline export.
+function workbookZip(files) {
+  const encoder = new TextEncoder();
+  const parts = [];
+  const directory = [];
+  let offset = 0;
+  let directorySize = 0;
+  for (const [path, contents] of Object.entries(files)) {
+    const name = encoder.encode(path);
+    const data = encoder.encode('<?xml version="1.0" encoding="UTF-8"?>' + contents);
+    const checksum = crc32(data);
+    const local = new DataView(new ArrayBuffer(30));
+    local.setUint32(0, 0x04034b50, true);
+    local.setUint16(4, 20, true);
+    local.setUint16(12, 33, true);
+    local.setUint32(14, checksum, true);
+    local.setUint32(18, data.length, true);
+    local.setUint32(22, data.length, true);
+    local.setUint16(26, name.length, true);
+    const central = new DataView(new ArrayBuffer(46));
+    central.setUint32(0, 0x02014b50, true);
+    central.setUint16(4, 20, true);
+    central.setUint16(6, 20, true);
+    central.setUint16(14, 33, true);
+    central.setUint32(16, checksum, true);
+    central.setUint32(20, data.length, true);
+    central.setUint32(24, data.length, true);
+    central.setUint16(28, name.length, true);
+    central.setUint32(42, offset, true);
+    parts.push(local.buffer, name, data);
+    directory.push(central.buffer, name);
+    offset += local.byteLength + name.length + data.length;
+    directorySize += central.byteLength + name.length;
+  }
+  const end = new DataView(new ArrayBuffer(22));
+  end.setUint32(0, 0x06054b50, true);
+  end.setUint16(8, directory.length / 2, true);
+  end.setUint16(10, directory.length / 2, true);
+  end.setUint32(12, directorySize, true);
+  end.setUint32(16, offset, true);
+  return new Blob([...parts, ...directory, end.buffer], {
+    type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+  });
+}
+
+function inventoryWorkbook(report) {
+  const spreadsheet = 'http://schemas.openxmlformats.org/spreadsheetml/2006/main';
+  const office = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships';
+  const packageRelationships = 'http://schemas.openxmlformats.org/package/2006/relationships';
+  return workbookZip({
+    '[Content_Types].xml':'<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">' +
+      '<Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>' +
+      '<Default Extension="xml" ContentType="application/xml"/>' +
+      '<Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/>' +
+      '<Override PartName="/xl/worksheets/sheet1.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/></Types>',
+    '_rels/.rels':'<Relationships xmlns="' + packageRelationships + '"><Relationship Id="rId1" Type="' +
+      office + '/officeDocument" Target="xl/workbook.xml"/></Relationships>',
+    'xl/workbook.xml':'<workbook xmlns="' + spreadsheet + '" xmlns:r="' + office +
+      '"><sheets><sheet name="Інвентаризація" sheetId="1" r:id="rId1"/></sheets></workbook>',
+    'xl/_rels/workbook.xml.rels':'<Relationships xmlns="' + packageRelationships + '"><Relationship Id="rId1" Type="' +
+      office + '/worksheet" Target="worksheets/sheet1.xml"/></Relationships>',
+    'xl/worksheets/sheet1.xml':inventoryXml(report)
+  });
+}
+
+$('download-excel').addEventListener('click', () => {
+  if (!inventoryReport) return;
+  const report = inventoryReport;
+  const date = report.date.toLocaleDateString('sv-SE');
+  const url = URL.createObjectURL(inventoryWorkbook(report));
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = 'inventory-' + date + '.xlsx';
+  document.body.append(link);
+  link.click();
+  link.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+});
+</script>
+</body>
+</html>
