@@ -700,7 +700,7 @@ $('inventory-form').addEventListener('submit', (event) => {
   const missingNote = blankCount ? '\nПорожніх полів: ' + blankCount + '. У звіті вони будуть враховані як 0.' : '';
   if (!confirm('Завершити інвентаризацію за ' + formatInventoryDate(date) + '?\nРазом: ' +
     formatInventoryVolume(total) + '.' + missingNote)) return;
-  inventoryReport = {date, rows, total, totals};
+  inventoryReport = {date, rows};
   $('inventory-total').textContent = 'Склад: ' + formatInventoryVolume(totals.warehouse) +
     ' · Бар: ' + formatInventoryVolume(totals.bar) + ' · Разом: ' + formatInventoryVolume(total);
   $('inventory-result').hidden = false;
@@ -713,24 +713,17 @@ function xmlText(value) {
 }
 
 function inventoryXml(report) {
-  const totals = categories.map(() => ({warehouse:0, bar:0, total:0}));
   const date = formatInventoryDate(report.date);
-  const summary = [['Інвентаризація бару за ' + date], [],
-    ['Підсумок', 'Склад, л', 'Бар, л', 'Разом, л'],
-    ['Усі позиції', report.totals.warehouse / 1000, report.totals.bar / 1000, report.total / 1000]];
-  const details = report.rows.map(({bottle, count, warehouseMl, barMl, milliliters}) => {
-    const category = totals[bottle.category];
-    category.warehouse += warehouseMl;
-    category.bar += barMl;
-    category.total += milliliters;
-    return [categories[bottle.category], bottle.name, bottle.volume / 1000, count ?? 0,
-      warehouseMl / 1000, barMl / 1000, milliliters / 1000];
-  });
-  const rows = [...summary, ...categories.map((name, index) => [
-    name, totals[index].warehouse / 1000, totals[index].bar / 1000, totals[index].total / 1000
-  ]), []];
-  const headerRow = rows.length + 1;
-  rows.push(['Категорія', 'Позиція', 'Об’єм пляшки, л', 'Склад, шт.', 'Склад, л', 'Бар, л', 'Разом, л'], ...details);
+  const details = report.rows.map(({bottle, count, warehouseMl, barMl, milliliters}) => [
+    categories[bottle.category], bottle.name, bottle.volume / 1000, count ?? 0,
+    warehouseMl / 1000, barMl / 1000, milliliters / 1000
+  ]);
+  const rows = [
+    ['Інвентаризація бару за ' + date],
+    [],
+    ['Категорія', 'Позиція', 'Об’єм пляшки, л', 'Склад, шт.', 'Склад, л', 'Бар, л', 'Разом, л'],
+    ...details
+  ];
   const data = rows.map((row, index) => {
     const rowNumber = index + 1;
     const cells = row.map((value, column) => {
@@ -743,7 +736,7 @@ function inventoryXml(report) {
   return '<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><cols>' +
     '<col min="1" max="1" width="23" customWidth="1"/><col min="2" max="2" width="56" customWidth="1"/>' +
     '<col min="3" max="7" width="21" customWidth="1"/></cols><sheetData>' + data + '</sheetData>' +
-    '<autoFilter ref="A' + headerRow + ':G' + rows.length + '"/></worksheet>';
+    '<autoFilter ref="A3:G' + rows.length + '"/></worksheet>';
 }
 
 function crc32(bytes) {
