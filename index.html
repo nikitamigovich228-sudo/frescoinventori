@@ -90,6 +90,13 @@ form { padding:4px 24px 24px }
 .views { display:flex; gap:8px; margin-bottom:26px; flex-wrap:wrap }
 .views button[aria-pressed="true"] { background:var(--forest); border-color:var(--forest); color:white }
 .inventory-panel { padding:24px }
+.inventory-intro { display:grid; grid-template-columns:minmax(0,1fr) 12rem; align-items:start; gap:14px 24px }
+.inventory-date { display:grid; gap:6px; width:min(100%,12rem); justify-self:end; font-weight:650 }
+.inventory-date input { width:100%; min-width:0; font-variant-numeric:tabular-nums }
+.inventory-date input[aria-invalid="true"] { border-color:#943629 }
+@media(max-width:580px) {
+  .inventory-intro { grid-template-columns:1fr }
+}
 .inventory-group { border:0; margin:24px 0 0; padding:0; min-width:0 }
 .inventory-group legend { padding:0; font-size:1.13rem; font-weight:750 }
 .inventory-row { display:grid; grid-template-columns:minmax(0,1fr) repeat(2,minmax(105px,145px)) minmax(90px,115px); align-items:start; gap:12px; padding-block:12px; border-bottom:1px solid var(--line) }
@@ -190,9 +197,14 @@ form { padding:4px 24px 24px }
   </details>
   </section>
   <section id="inventory-page" aria-labelledby="inventory-title" hidden>
-    <div class="intro">
-      <h1 id="inventory-title">Інвентаризація</h1>
-      <p>На складі вкажи кількість повних пляшок. На барі вкажи весь залишок у мілілітрах. Якщо залишку немає, впиши 0.</p>
+    <div class="intro inventory-intro">
+      <div>
+        <h1 id="inventory-title">Інвентаризація</h1>
+        <p>На складі вкажи кількість повних пляшок. На барі вкажи весь залишок у мілілітрах. Якщо залишку немає, впиши 0.</p>
+      </div>
+      <label class="inventory-date">Дата інвентаризації
+        <input id="inventory-date" type="text" form="inventory-form" placeholder="ДД.ММ.РРРР" maxlength="10" autocomplete="off" required>
+      </label>
     </div>
     <form id="inventory-form" class="panel inventory-panel" autocomplete="off" novalidate>
       <h2>Залишки на складі й барі</h2>
@@ -461,6 +473,8 @@ form.addEventListener('submit', (event) => {
 renderCatalog(initial[0].id);
 
 const inventoryDraftKey = 'bar-inventory-ua.report-draft.v1';
+const inventoryDateKey = 'bar-inventory-ua.report-date';
+const inventoryDate = $('inventory-date');
 const inventoryOnly = {id:'report-penny-packer', name:'Пенні Пакер Бурбон', category:2, volume:700};
 const inventoryFormatter = new Intl.NumberFormat('uk-UA', {maximumFractionDigits:3});
 let inventoryDraft = {};
@@ -469,6 +483,37 @@ let inventoryReport = null;
 try {
   inventoryDraft = JSON.parse(localStorage.getItem(inventoryDraftKey)) ?? {};
 } catch {}
+
+function isInventoryDate(value) {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(value) || value.startsWith('0000')) return false;
+  const date = new Date(value + 'T00:00:00Z');
+  return Number.isFinite(date.getTime()) && date.toISOString().slice(0, 10) === value;
+}
+
+function formatInventoryDate(isoDate) {
+  return isoDate.split('-').reverse().join('.');
+}
+
+function readInventoryDate() {
+  const value = inventoryDate.value.trim();
+  if (!/^\d{2}\.\d{2}\.\d{4}$/.test(value)) return '';
+  const isoDate = value.split('.').reverse().join('-');
+  return isInventoryDate(isoDate) ? isoDate : '';
+}
+
+inventoryDate.value = formatInventoryDate(new Date().toLocaleDateString('sv-SE'));
+try {
+  const savedDate = localStorage.getItem(inventoryDateKey);
+  if (savedDate && isInventoryDate(savedDate)) inventoryDate.value = formatInventoryDate(savedDate);
+} catch {}
+
+inventoryDate.addEventListener('input', () => {
+  inventoryDate.removeAttribute('aria-invalid');
+  invalidateReport();
+  const date = readInventoryDate();
+  if (!date) return;
+  try { localStorage.setItem(inventoryDateKey, date); } catch {}
+});
 
 function inventoryKey(bottle) {
   return bottle.category + '|' + bottle.name.trim().toLowerCase() + '|' + bottle.volume;
@@ -615,6 +660,14 @@ $('show-inventory').addEventListener('click', () => {
 
 $('inventory-form').addEventListener('submit', (event) => {
   event.preventDefault();
+  const date = readInventoryDate();
+  if (!date) {
+    $('inventory-error').textContent = 'Вкажи дату інвентаризації у форматі ДД.ММ.РРРР.';
+    $('inventory-error').hidden = false;
+    inventoryDate.setAttribute('aria-invalid', 'true');
+    inventoryDate.focus();
+    return;
+  }
   const rows = inventoryFields.map(inventoryRowValues);
   const blank = [];
   const invalidWarehouse = [];
@@ -644,7 +697,7 @@ $('inventory-form').addEventListener('submit', (event) => {
     (invalidWarehouse[0] ?? invalidBar[0] ?? blank[0])?.focus();
     return;
   }
-  inventoryReport = {date:new Date(), rows, total, totals};
+  inventoryReport = {date, rows, total, totals};
   $('inventory-error').hidden = true;
   $('inventory-total').textContent = 'Склад: ' + formatInventoryVolume(totals.warehouse) +
     ' · Бар: ' + formatInventoryVolume(totals.bar) + ' · Разом: ' + formatInventoryVolume(total);
@@ -659,8 +712,8 @@ function xmlText(value) {
 
 function inventoryXml(report) {
   const totals = categories.map(() => ({warehouse:0, bar:0, total:0}));
-  const date = report.date.toLocaleDateString('uk-UA');
-  const summary = [['Інвентаризація бару'], ['Дата', date], [],
+  const date = formatInventoryDate(report.date);
+  const summary = [['Інвентаризація бару за ' + date], [],
     ['Підсумок', 'Склад, л', 'Бар, л', 'Разом, л'],
     ['Усі позиції', report.totals.warehouse / 1000, report.totals.bar / 1000, report.total / 1000]];
   const details = report.rows.map(({bottle, count, warehouseMl, barMl, milliliters}) => {
@@ -768,11 +821,10 @@ function inventoryWorkbook(report) {
 $('download-excel').addEventListener('click', () => {
   if (!inventoryReport) return;
   const report = inventoryReport;
-  const date = report.date.toLocaleDateString('sv-SE');
   const url = URL.createObjectURL(inventoryWorkbook(report));
   const link = document.createElement('a');
   link.href = url;
-  link.download = 'inventory-' + date + '.xlsx';
+  link.download = 'inventory-' + report.date + '.xlsx';
   document.body.append(link);
   link.click();
   link.remove();
